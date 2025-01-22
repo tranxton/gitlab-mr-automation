@@ -1,0 +1,6 @@
+.idea
+.env.local
+.DS_store*
+
+var
+!var/phpstan/.gitkeep

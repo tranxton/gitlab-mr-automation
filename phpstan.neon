@@ -1,0 +1,17 @@
+includes:
+  - /vendor/phpstan/phpstan-strict-rules/rules.neon
+
+parameters:
+  level: max
+  paths:
+    - ./
+  excludePaths:
+    - var
+  tmpDir: var/phpstan
+  exceptions:
+    check:
+      missingCheckedExceptionInThrows: true
+    uncheckedExceptionClasses:
+      - 'LogicException'
+      - 'RuntimeException'
+      - 'Error'
