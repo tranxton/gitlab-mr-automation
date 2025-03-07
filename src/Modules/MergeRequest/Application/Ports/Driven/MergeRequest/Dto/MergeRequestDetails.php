@@ -25,7 +25,7 @@ class MergeRequestDetails
     /**
      * @Serializer\Type("array")
      *
-     * @var array<int, array{name: string}>
+     * @var array<int, array{name: string, username: string}>
      */
     private $reviewers;
 
@@ -37,7 +37,7 @@ class MergeRequestDetails
     private $assignees;
 
     /**
-     * @param array<int, array{name: string}> $reviewers
+     * @param array<int, array{name: string, username: string}> $reviewers
      * @param array<int, array{name: string}> $assignees
      */
     public function __construct(string $title, string $description, array $reviewers, array $assignees)
@@ -59,7 +59,7 @@ class MergeRequestDetails
     }
 
     /**
-     * @return array<int, array{name: string}>
+     * @return array<int, array{name: string, username: string}>
      */
     public function getReviewers(): array
     {
@@ -74,3 +74,4 @@ class MergeRequestDetails
         return $this->assignees;
     }
 }
+

@@ -9,6 +9,7 @@ use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeReques
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\Description\Enums\TemplateEnum;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\DescriptionTemplate\DescriptionTemplate;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\DescriptionTemplate\Enums\PatternEnum as DescriptionTemplatePatternEnum;
+use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\User\User;
 
 class Description
 {
@@ -18,7 +19,7 @@ class Description
     private $value;
 
     /**
-     * @var string
+     * @var string|null
      */
     private $reviewerChecklist;
 
@@ -32,9 +33,21 @@ class Description
      */
     private $existingReviewers;
 
-    public function __construct(string $value)
+    /**
+     * @var string
+     */
+    private $jiraTaskUrl;
+
+    /**
+     * @var string
+     */
+    private $gitlabUserProfileUrl;
+
+    public function __construct(string $value, string $jiraTaskUrl, string $gitlabUserProfileUrl)
     {
         $this->value = $value;
+        $this->jiraTaskUrl = $jiraTaskUrl;
+        $this->gitlabUserProfileUrl = $gitlabUserProfileUrl;
     }
 
     public function extractShortDescription(): self
@@ -50,7 +63,7 @@ class Description
         if ($self->hasNoTemplate()) {
             $shortDescription = $self->getValue();
         } else {
-            preg_match(DescriptionPatternEnum::SHORT_DESCRIPTION_SECTION, $self->getValue(), $matches);
+            preg_match(sprintf('/%s/u', DescriptionPatternEnum::SHORT_DESCRIPTION_SECTION), $self->getValue(), $matches);
             if (!isset($matches[2])) {
                 throw new MergeRequestRuntimeException('Cannot extract short description.');
             }
@@ -87,7 +100,7 @@ class Description
     {
         $self = clone $this;
 
-        preg_match(DescriptionPatternEnum::REVIEWER_CHECKLIST_SECTION, $self->getValue(), $matches);
+        preg_match(sprintf('/%s/su', DescriptionPatternEnum::REVIEWER_CHECKLIST_SECTION), $self->getValue(), $matches);
         if (!isset($matches[1])) {
             throw new MergeRequestRuntimeException('Cannot extract reviewer checklists.', 0);
         }
@@ -111,24 +124,50 @@ class Description
         $this->value = $value;
     }
 
+    /**
+     * @deprecated use extractExistingReviewerWithLinks instead
+     */
     public function extractExistingReviewers(): self
     {
         $self = clone $this;
 
         preg_match_all(
-            DescriptionPatternEnum::NAMED_REVIEWER_SECTION,
+            sprintf('/%s/u', DescriptionPatternEnum::NAMED_REVIEWER_SECTION),
             $self->getValue(),
             $reviewersInformation,
             PREG_SET_ORDER
         );
 
-        $self->existingReviewers = array_map(static function (array $reviewerInformation): string {
+        $existingReviewers = array_map(static function (array $reviewerInformation): string {
             if (!isset($reviewerInformation[1])) {
                 throw new MergeRequestRuntimeException('Cannot find review name in named reviewer checklist.');
             }
 
             return trim($reviewerInformation[1]);
         }, $reviewersInformation);
+        $self->existingReviewers = array_merge($self->existingReviewers ?? [], $existingReviewers);
+
+        return $self;
+    }
+    public function extractExistingReviewerWithLinks(): self
+    {
+        $self = clone $this;
+
+        preg_match_all(
+            sprintf('/%s/u', DescriptionPatternEnum::NAMED_REVIEWER_WITH_LINK_SECTION),
+            $self->getValue(),
+            $reviewersInformation,
+            PREG_SET_ORDER
+        );
+
+        $existingReviewers = array_map(static function (array $reviewerInformation): string {
+            if (!isset($reviewerInformation[1])) {
+                throw new MergeRequestRuntimeException('Cannot find review name in named reviewer checklist.');
+            }
+
+            return trim($reviewerInformation[1]);
+        }, $reviewersInformation);
+        $self->existingReviewers = array_merge($self->existingReviewers ?? [], $existingReviewers);
 
         return $self;
     }
@@ -137,7 +176,7 @@ class Description
     {
         $self = clone $this;
 
-        $withoutReviewersSection = preg_replace(DescriptionPatternEnum::REVIEWERS_DEFAULT_SECTION, '',
+        $withoutReviewersSection = preg_replace(sprintf('/%s/u', DescriptionPatternEnum::REVIEWERS_DEFAULT_SECTION), '',
             $self->getValue());
         $self->setValue(trim((string) $withoutReviewersSection));
 
@@ -145,29 +184,34 @@ class Description
     }
 
     /**
-     * @param  array<int, string>  $reviewerNames
+     * @param  array<int, User>  $reviewers
      */
-    public function addNamedReviewersChecklists(array $reviewerNames): self
+    public function addNamedReviewersChecklists(array $reviewers): self
     {
         $self = clone $this;
 
-        if ($self->reviewerChecklist === null) {
+        if (!is_string($self->reviewerChecklist)) {
             throw new MergeRequestRuntimeException('Cannot add named reviewer checklists because the reviewer checklist is empty.', 0);
         }
 
-        if ($self->existingReviewers === null) {
+        if (!is_array($self->existingReviewers)) {
             throw new MergeRequestRuntimeException('Cannot add named reviewer checklists because the existing reviewer list was not extracted.', 0);
         }
 
-        $newReviewers = array_diff($reviewerNames, $self->existingReviewers);
+        /**
+         * @var array<int, User> $newReviewers
+         */
+        $newReviewers = array_filter($reviewers, static function (User $reviewer) use ($self){
+            return !in_array($reviewer->getName(), $self->existingReviewers, true);
+        });
+        $reviewerIndex = count($this->existingReviewers ?? []);
 
-        foreach ($newReviewers as $i => $reviewerName) {
-            $reviewerIndex = $i + 1;
-
+        foreach ($newReviewers as $newReviewer) {
             $self = $self->addValue(sprintf(
-                "\n\n## Ревьювер %d: %s\n\n%s",
-                $reviewerIndex,
-                $reviewerName,
+                TemplateEnum::NAMED_REVIEWER_SUBHEADER,
+                ++$reviewerIndex,
+                $newReviewer->getName(),
+                sprintf("%s/%s", $this->gitlabUserProfileUrl, $newReviewer->getUsername()),
                 $self->reviewerChecklist
             ));
         }
@@ -188,7 +232,12 @@ class Description
     {
         $self = clone $this;
 
-        $updatedShortDescription = preg_replace(DescriptionPatternEnum::TASK_LINK, '', $this->getShortDescription());
+        $updatedShortDescription = preg_replace(
+            sprintf('/%s%s/u', preg_quote($this->jiraTaskUrl, '/'), DescriptionPatternEnum::JIRA_TASK_ID),
+            '',
+            $this->getShortDescription()
+        );
+
         if (!is_string($updatedShortDescription)) {
             throw new MergeRequestRuntimeException('Cannot remove custom task link from short description.');
         }
@@ -208,7 +257,7 @@ class Description
         $self = clone $this;
 
         $self->value = (string) preg_replace(
-            DescriptionPatternEnum::SHORT_DESCRIPTION_SECTION,
+            sprintf('/%s/u', DescriptionPatternEnum::SHORT_DESCRIPTION_SECTION),
             sprintf(TemplateEnum::SHORT_DESCRIPTION_CONTENT, $self->shortDescription),
             $self->getValue()
         );

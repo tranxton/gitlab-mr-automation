@@ -40,18 +40,36 @@ class CodeReviewPreparationRequest
     private $templateFile;
 
     /**
+     * @Serializer\Type("string")
+     *
+     * @var string
+     */
+    private $jiraTaskUrl;
+
+    /**
+     * @Serializer\Type("string")
+     *
+     * @var string
+     */
+    private $gitlabUserProfileUrl;
+
+    /**
      * @throws PrepareForCodeReviewException
      */
     public function __construct(
         string $branch,
         string $projectId,
         string $mrIid,
-        string $templateFile
+        string $templateFile,
+        string $jiraTaskUrl,
+        string $gitlabUserProfileUrl
     ) {
         $this->branch = $branch;
         $this->projectId = $projectId;
         $this->mrIid = $mrIid;
         $this->templateFile = $templateFile;
+        $this->jiraTaskUrl = $jiraTaskUrl;
+        $this->gitlabUserProfileUrl = $gitlabUserProfileUrl;
     }
 
     /**
@@ -90,5 +108,15 @@ class CodeReviewPreparationRequest
     public function getTemplateFile(): string
     {
         return $this->templateFile;
+    }
+
+    public function getJiraTaskUrl(): string
+    {
+        return $this->jiraTaskUrl;
+    }
+
+    public function getGitlabUserProfileUrl(): string
+    {
+        return $this->gitlabUserProfileUrl;
     }
 }

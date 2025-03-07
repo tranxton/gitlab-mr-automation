@@ -9,25 +9,30 @@ class PatternEnum
     /**
      * @var string
      */
-    public const SHORT_DESCRIPTION_SECTION = '/(## Краткое описание проделанной работы)([\s\S]*?)(## Автор)/u';
+    public const SHORT_DESCRIPTION_SECTION = '(## Краткое описание проделанной работы)([\s\S]*?)(## Автор)';
 
     /**
      * @var string
      */
-    public const TASK_LINK = '/https:\/\/jira\.dats\.tech\/browse\/[A-Z]{2,}-\d{1,9}/u';
+    public const JIRA_TASK_ID = '[A-Z]{2,}-\d{1,9}';
 
     /**
      * @var string
      */
-    public const REVIEWERS_DEFAULT_SECTION = '/## Ревьювер\s\d+(?!:)([\s\S]*?)(?=\n## Ревьювер|$)/u';
+    public const REVIEWERS_DEFAULT_SECTION = '## Ревьювер\s\d+(?!:)([\s\S]*?)(?=\n## Ревьювер|$)';
 
     /**
      * @var string
      */
-    public const REVIEWER_CHECKLIST_SECTION = '/## Ревьювер.*?(###.*?)(?=\n## Ревьювер|$)/su';
+    public const REVIEWER_CHECKLIST_SECTION = '## Ревьювер.*?(###.*?)(?=\n## Ревьювер|$)';
 
     /**
      * @var string
      */
-    public const NAMED_REVIEWER_SECTION = '/## Ревьювер\s\d+:\s([А-Яа-яЁёA-Za-z]+\s[А-Яа-яЁёA-Za-z]+)[\s\S]*?(?=## Ревьювер|$)/u';
+    public const NAMED_REVIEWER_SECTION = '## Ревьювер\s\d+:\s([А-Яа-яЁёA-Za-z]+\s[А-Яа-яЁёA-Za-z]+(\s[А-Яа-яЁёA-Za-z]+)?)[\s\S]*?(?=## Ревьювер|$)';
+
+    /**
+     * @var string
+     */
+    public const NAMED_REVIEWER_WITH_LINK_SECTION = '## Ревьювер\s\d+:\s\[(.*?)\][\s\S]*?(?=## Ревьювер|$)';
 }

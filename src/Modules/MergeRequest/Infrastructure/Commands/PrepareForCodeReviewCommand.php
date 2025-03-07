@@ -46,7 +46,9 @@ class PrepareForCodeReviewCommand extends Command
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Current Git branch')
             ->addOption('project_id', null, InputOption::VALUE_REQUIRED, 'The GitLab project ID')
             ->addOption('mr_iid', null, InputOption::VALUE_REQUIRED, 'The Merge Request internal ID')
-            ->addOption('template_file', null, InputOption::VALUE_REQUIRED, 'Path to the template file');
+            ->addOption('template_file', null, InputOption::VALUE_REQUIRED, 'Path to the template file')
+            ->addOption('jira_task_url', null, InputOption::VALUE_REQUIRED, 'The Jira task URL')
+            ->addOption('gitlab_user_profile_url', null, InputOption::VALUE_REQUIRED, 'The GitLab user profile URL');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -55,7 +57,7 @@ class PrepareForCodeReviewCommand extends Command
 
         try {
             $response = $this->updateDescriptionPort->update($this->getValidatedRequest($input));
-        } catch (InvalidArgumentException | PrepareForCodeReviewException $e) {
+        } catch (InvalidArgumentException|PrepareForCodeReviewException $e) {
             $io->error($e->getMessage());
 
             return 1;
@@ -78,6 +80,8 @@ class PrepareForCodeReviewCommand extends Command
             'project_id' => $input->getOption('project_id'),
             'branch' => $input->getOption('branch'),
             'mr_iid' => $input->getOption('mr_iid'),
+            'jira_task_url' => $input->getOption('jira_task_url'),
+            'gitlab_user_profile_url' => $input->getOption('gitlab_user_profile_url'),
         ];
 
         if (in_array(null, $inputs, true)) {
@@ -85,7 +89,7 @@ class PrepareForCodeReviewCommand extends Command
         }
 
         $inputs['template_file'] = is_string($inputs['template_file']) ? $inputs['template_file'] : '';
-        $inputs['template_file'] = __DIR__ . '/../../../../../../' . $inputs['template_file'];
+        $inputs['template_file'] = sprintf('%s/%s', dirname(__DIR__, 6), $inputs['template_file']);
 
         /** @var CodeReviewPreparationRequest */
         return $this->serializer->deserialize(

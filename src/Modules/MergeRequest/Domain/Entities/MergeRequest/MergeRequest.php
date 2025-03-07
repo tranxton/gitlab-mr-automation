@@ -8,6 +8,7 @@ use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeReques
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\Description\Description;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\DescriptionTemplate\DescriptionTemplate;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\Title;
+use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\User\User;
 
 class MergeRequest
 {
@@ -22,7 +23,7 @@ class MergeRequest
     private $description;
 
     /**
-     * @var array<int, array{name: string}>
+     * @var array<int, User>
      */
     private $reviewers;
 
@@ -32,7 +33,7 @@ class MergeRequest
     private $assignees;
 
     /**
-     * @param  array<int, array{name: string}>  $reviewers
+     * @param  array<int, User>  $reviewers
      * @param  array<int, array{name: string}>  $assignees
      */
     public function __construct(Title $title, Description $description, array $reviewers, array $assignees)
@@ -90,17 +91,13 @@ class MergeRequest
             ->attachShortDescription()
             ->extractReviewerChecklist()
             ->extractExistingReviewers()
+            ->extractExistingReviewerWithLinks()
             ->removeDefaultReviewersSection()
-            ->addNamedReviewersChecklists($this->getReviewerNames());
+            ->addNamedReviewersChecklists($this->getReviewers());
 
         $this->setTitle($title);
 
         return $this;
-    }
-
-    public function hasNoReviewers(): bool
-    {
-        return $this->getReviewers() === [];
     }
 
     public function hasNoAssignees(): bool
@@ -111,24 +108,21 @@ class MergeRequest
     /**
      * @return array<int, array{name: string}>
      */
-    public function getReviewers(): array
-    {
-        return $this->reviewers;
-    }
-
-    /**
-     * @return array<int, array{name: string}>
-     */
     public function getAssignees(): array
     {
         return $this->assignees;
     }
 
-    /**
-     * @return array<int, string>
-     */
-    public function getReviewerNames(): array
+    public function hasNoReviewers(): bool
     {
-        return array_column($this->getReviewers(), 'name');
+        return $this->getReviewers() === [];
+    }
+
+    /**
+     * @return array<int, User>
+     */
+    public function getReviewers(): array
+    {
+        return $this->reviewers;
     }
 }

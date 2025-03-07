@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tranxton\GitlabMrAutomation\Modules\MergeRequest\Application;
 
+use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Application\Factories\MergeRequestFactory;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Application\Ports\Driven\MergeRequest\Dto\MergeRequestUpdatePayload;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Application\Ports\Driven\MergeRequest\MergeRequestPort;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Application\Ports\Driven\MergeRequestTemplate\MergeRequestDescriptionTemplatePort;
@@ -15,7 +16,6 @@ use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Application\Ports\Driving\U
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Application\Ports\Driving\UpdateMergeRequestDescription\Exceptions\PrepareForCodeReviewException;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\Enums\TemplateEnum;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\MergeRequest;
-use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\Description\Description;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\DescriptionTemplate\DescriptionTemplate;
 use Tranxton\GitlabMrAutomation\Modules\MergeRequest\Domain\Entities\MergeRequest\ValueObjects\Title;
 
@@ -25,6 +25,11 @@ class PrepareForCodeReview
      * @var MergeRequestDescriptionTemplatePort
      */
     private $mergeRequestDescriptionTemplatePort;
+
+    /**
+     * @var MergeRequestFactory
+     */
+    private $mergeRequestFactory;
 
     /**
      * @var MergeRequestPort
@@ -38,10 +43,12 @@ class PrepareForCodeReview
 
     public function __construct(
         MergeRequestDescriptionTemplatePort $mergeRequestTemplatePort,
+        MergeRequestFactory $mergeRequestFactory,
         MergeRequestPort $mergeRequestPort,
         TaskPort $taskPort
     ) {
         $this->mergeRequestDescriptionTemplatePort = $mergeRequestTemplatePort;
+        $this->mergeRequestFactory = $mergeRequestFactory;
         $this->mergeRequestPort = $mergeRequestPort;
         $this->taskPort = $taskPort;
     }
@@ -68,7 +75,7 @@ class PrepareForCodeReview
     private function prepareMergeRequestForReview(CodeReviewPreparationRequest $request): void
     {
         $mergeRequestTemplate = $this->getMergeRequestDescriptionTemplate($request->getTemplateFile());
-        $mergeRequest = $this->getMergeRequest($request->getProjectId(), $request->getMrIid());
+        $mergeRequest = $this->getMergeRequest($request);
         $taskTitle = $this->getTaskTitle(new TaskId($request->getBranch()));
         $mergeRequest->prepareForCodeReview($taskTitle, $mergeRequestTemplate);
 
@@ -98,15 +105,14 @@ class PrepareForCodeReview
     /**
      * @throws PrepareForCodeReviewException
      */
-    private function getMergeRequest(string $projectId, string $mrIid): MergeRequest
+    private function getMergeRequest(CodeReviewPreparationRequest $request): MergeRequest
     {
-        $mrDetails = $this->mergeRequestPort->getDetails($projectId, $mrIid);
+        $mrDetails = $this->mergeRequestPort->getDetails($request->getProjectId(), $request->getMrIid());
 
-        return new MergeRequest(
-            new Title($mrDetails->getTitle()),
-            new Description($mrDetails->getDescription()),
-            $mrDetails->getReviewers(),
-            $mrDetails->getAssignees()
+        return $this->mergeRequestFactory->make(
+            $mrDetails,
+            $request->getJiraTaskUrl(),
+            $request->getGitlabUserProfileUrl()
         );
     }
 
